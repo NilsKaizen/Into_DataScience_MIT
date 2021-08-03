@@ -8,6 +8,7 @@
 # Finding shortest paths through MIT buildings
 #
 import unittest
+import pandas as pd
 from graph import Digraph, Node, WeightedEdge
 
 #
@@ -42,9 +43,40 @@ def load_map(map_filename):
     Returns:
         a Digraph representing the map
     """
+    digr = Digraph()
 
-    # TODO
+    with open(map_filename) as f:
+        data = f.read()
+        edges = data.split('\n')
+
+        for edge in edges:
+            ed = edge.split(' ')
+            s = Node(ed[0])  # start edge
+            d = Node(ed[1])  # end edge
+            w_ed = WeightedEdge(s, d, ed[2], ed[3])  # Weight Edge
+
+            try:
+                digr.add_node(s)
+            except:
+                pass
+                # print('Node already exists')
+
+            try:
+                digr.add_node(d)
+            except:
+                pass
+                # print('Node already exists')
+
+            digr.add_edge(w_ed)
+        f.close()
+
     print("Loading map from file...")
+    # print(len(edges))
+
+    return digr
+
+
+# print(load_map('Assigments\PS2\mit_map.txt'))
 
 # Problem 2c: Testing load_map
 # Include the lines used to test load_map below, but comment them out
@@ -95,8 +127,128 @@ def get_best_path(digraph, start, end, path, max_dist_outdoors, best_dist,
         If there exists no path that satisfies max_total_dist and
         max_dist_outdoors constraints, then return None.
     """
-    # TODO
-    pass
+    # Checks if the values are nodes, otherwise convert them to nodes
+    if type(start) != Node:
+        start = Node(start)
+
+    if type(end) != Node:
+        end = Node(end)
+
+    best_path += [start.name]
+
+    # Raise an error if one or both nodes are not in the digraph
+
+    if not (start in digraph.nodes and end in digraph.nodes):
+        raise ValueError('Invalid Node')
+
+    # Checks if the start node == ende node
+
+    elif start.__eq__(end):
+        # best_path += [end.name]
+        best_dist = path[1] + int(end.get_total_distance())
+        return (best_path), best_dist
+    else:
+        # Checks if the end node is in the destination nodel of all edges from the start node
+        if end in [e.get_destination() for e in digraph.get_edges_for_node(start)]:
+
+            # Get the edge between start and destination
+            ed = [e for e in digraph.get_edges_for_node(
+                start) if e.get_destination() == end][0]
+
+            best_dist = path[1] + int(ed.get_total_distance())
+            # best_path = path[0] + [end.name]
+
+        else:
+            # Check every edge
+            for e in digraph.get_edges_for_node(start):
+                if str(e.get_destination()) not in path[0]:
+                    t_path = [
+                        path[0] + [str(e.get_destination())], path[1] + int(e.get_total_distance()), path[2] + int(e.get_outdoor_distance())]
+
+                    print(e.get_destination())
+                    print(int(e.get_outdoor_distance()))
+
+                    best_path, best_dist = get_best_path(digraph, e.get_destination(
+                    ), end, t_path, max_dist_outdoors - int(e.get_outdoor_distance()), best_dist, best_path)
+
+    if max_dist_outdoors >= 0:
+        return best_path, best_dist
+    else:
+        return [], 0
+
+
+def get_best_path_BFS(digraph, start, end, path, max_dist_outdoors, best_dist,
+                      best_path, cue, passed):
+    """
+    Finds the shortest path between buildings subject to constraints.
+
+    Parameters:
+        digraph: Digraph instance
+            The graph on which to carry out the search
+        start: string
+            Building number at which to start
+        end: string
+            Building number at which to end
+        path: list composed of [[list of strings], int, int]
+            Represents the current path of nodes being traversed. Contains
+            a list of node names, total distance traveled, and total
+            distance outdoors.
+        max_dist_outdoors: int
+            Maximum distance spent outdoors on a path
+        best_dist: int
+            The smallest distance between the original start and end node
+            for the initial problem that you are trying to solve
+        best_path: list of strings
+            The shortest path found so far between the original start
+            and end node.
+
+    Returns:
+        A tuple with the shortest-path from start to end, represented by
+        a list of building numbers (in strings), [n_1, n_2, ..., n_k],
+        where there exists an edge from n_i to n_(i+1) in digraph,
+        for all 1 <= i < k and the distance of that path.
+
+        If there exists no path that satisfies max_total_dist and
+        max_dist_outdoors constraints, then return None.
+    """
+    # Checks if the values are nodes, otherwise convert them to nodes
+    if type(start) != Node:
+        start = Node(start)
+
+    if type(end) != Node:
+        end = Node(end)
+
+    best_path += [start.name]
+    best_dist = path[1] + int(end.get_total_distance())
+
+    # Raise an error if one or both nodes are not in the digraph
+
+    if not (start in digraph.nodes and end in digraph.nodes):
+        raise ValueError('Invalid Node')
+
+    # Checks if the start node == ende node
+
+    elif start.__eq__(end):
+        # best_path += [end.name]
+
+        return (best_path), best_dist
+    else:
+        cue.append(start)
+
+        while not cue.isEmpty:
+            for node in [e.get_destination() for e in digraph.get_edges_for_node(start)]:
+                if node not in passed:
+                    passed.append(node)
+                    s = cue.pop(0)
+                    best_path, best_dist = get_best_path_BFS(digraph, s, end, path, max_dist_outdoors - int(path[1]), best_dist,
+                                                             best_path, cue, passed)
+
+    if not best_path.isEmpty and max_dist_outdoors >= 0:
+        return best_path, best_dist
+    else:
+        return [], 0
+# print([d.get_destination() for d in load_map(
+#     'Assigments\PS2\mit_map.txt').get_edges_for_node(Node(1))])
 
 
 # Problem 3c: Implement directed_dfs
@@ -128,8 +280,17 @@ def directed_dfs(digraph, start, end, max_total_dist, max_dist_outdoors):
         If there exists no path that satisfies max_total_dist and
         max_dist_outdoors constraints, then raises a ValueError.
     """
-    # TODO
-    pass
+    path, max_d = get_best_path_BFS(digraph, start, end, [
+        [], 0, 0], max_dist_outdoors, 0, [],[],[])
+
+    if path is [] or max_d > max_total_dist:
+        raise ValueError
+    else:
+        return path
+
+
+# print(directed_dfs(load_map('Assigments\PS2\mit_map.txt'),
+#                    Node(2), Node(9), 1000, 1000))
 
 
 # ================================================================
@@ -140,7 +301,7 @@ class Ps2Test(unittest.TestCase):
     LARGE_DIST = 99999
 
     def setUp(self):
-        self.graph = load_map("mit_map.txt")
+        self.graph = load_map("Assigments\PS2\mit_map.txt")
 
     def test_load_map_basic(self):
         self.assertTrue(isinstance(self.graph, Digraph))
@@ -173,7 +334,8 @@ class Ps2Test(unittest.TestCase):
                    outdoor_dist=LARGE_DIST):
         start, end = expectedPath[0], expectedPath[-1]
         self._print_path_description(start, end, total_dist, outdoor_dist)
-        dfsPath = directed_dfs(self.graph, start, end, total_dist, outdoor_dist)
+        dfsPath = directed_dfs(self.graph, start, end,
+                               total_dist, outdoor_dist)
         print("Expected: ", expectedPath)
         print("DFS: ", dfsPath)
         self.assertEqual(expectedPath, dfsPath)
